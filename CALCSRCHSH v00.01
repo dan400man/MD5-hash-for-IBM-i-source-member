@@ -1,0 +1,105 @@
+**free                                                                                           
+ctl-opt dftactgrp(*no);                                                                          
+                                                                                                 
+/COPY QSYSINC/QRPGLESRC,QC3CCI                                                                   
+                                                                                                 
+dcl-pi *n;                                           // <--- *ENTRY PLIST                        
+ p_Library                       char( 10);                                                      
+ p_File                          char( 10);                                                      
+ p_Member                        char( 10);                                                      
+end-pi;                                                                                          
+                                                                                                 
+dcl-s  RowsFetched               int( 10);                                                       
+dcl-ds dsLSD                     dim( 50) Qualified;                                             
+   LongSrcDta                    char( 500);                                                     
+end-ds;                                                                                          
+dcl-s  Number_of_dsLSD_array_elements  int(  5)  inz( 50); // should be a constant, but SQL host 
+                                                           // variables can't be constants       
+dcl-s  x                         int(  5);                                                       
+dcl-s  DataToHash                varchar( 16773100);                                             
+dcl-s  wSqlStmt                  varchar( 200);                                                  
+                                                                                                 
+dcl-pr hash extproc('Qc3CalculateHash');                                                         
+ InputData                       pointer value;                                                  
+ LengthOfInputData               bindec( 9);                    
+ InputDataFormatName             char(   8);                    
+ AlgorithmDescription            char(  20) options(*varsize);  
+ AlgorithmDescriptionFormatName  char(   8);                    
+ CryptographicServiceProvider    char(   1);                    
+ CryptographicDeviceName         char(  10);                    
+ Hash                            char(  16) options(*varsize);  
+ ErrorCode                       char( 300) options(*varsize);  
+end-pr;                                                         
+                                                                
+dcl-s inputlen                   bindec( 9);                    
+dcl-s inputfmt                   char(   8) inz('DATA0100');    
+dcl-s AlgDescFmt                 char(   8) inz('ALGD0500');    
+dcl-s CryptoServ                 char(   1) inz('0');           
+dcl-s CryptoDev                  char(  10) inz(*blanks);       
+dcl-s HashValue                  char(  16);                    
+dcl-s HashValueChar              char(  32);                    
+                                                                
+dcl-ds ErrorCD;                                                 
+ BytesProv                       int( 10) inz( %size( errorcd));
+ BytesAvail                      int( 10);                      
+ MsgId                           char( 7);                      
+ Reserved                        char( 1);                      
+ MsgReplacementText              char( 300);                    
+end-ds;                            
+                                   
+dcl-pr cvthex1To2 extproc('cvthc');
+ longReceiver   pointer value;     
+ shortSource    pointer value;     
+ sourceBytes    int(10) value;     
+end-pr;                            
+                                   
+                                   
+Clear DataToHash;                  
+                                   
+Exec Sql Drop Alias qTemp/SourceMember;  // Just in case it exists from a previous run
+
+wSqlStmt = 'Create Alias qTemp/SourceMember for '     
+          + %trim( p_Library) + '/'                   
+          + %trim( p_File)    + ' ('                  
+          + %trim( p_Member)  + ')';                  
+Exec SQL Prepare SqlStmt from :wSqlStmt;              
+Exec SQL Execute SqlStmt;                             
+                                                      
+Exec Sql Declare cSM Scroll Cursor For                
+           select SrcDta from qTemp/SourceMember;     
+                                                      
+Exec Sql Open cSM;                                    
+                                                      
+Dou RowsFetched = 0;                                  
+                                                      
+  Exec Sql Fetch Next                                 
+             From cSM                                 
+             For :Number_of_dsLSD_array_elements Rows 
+             Into :dsLSD;                             
+                                                      
+  RowsFetched = SQLERRD(3);                           
+  For x = 1 to RowsFetched;                           
+    If dsLSD( x).LongSrcDta <> ' ';                   
+      DataToHash += %trimr( dsLSD( x).LongSrcDta);    
+     Else;                                            
+      DataToHash += x'FF';                                                     
+    Endif;                                                                     
+  Endfor;                                                                      
+                                                                               
+Enddo;                                                                         
+                                                                               
+Exec Sql Close cSM;                                                            
+Exec Sql Drop Alias qTemp/SourceMember;                                        
+                                                                               
+inputlen = %len( DataToHash);                                                  
+QC3HA = 1;  // MD-5 hash                                                       
+hash( %addr( DataToHash : *DATA) : inputlen: inputfmt:                         
+      QC3D0500: algdescfmt: cryptoserv:                                        
+      cryptoDev: HashValue: errorCD);                                          
+                                                                               
+dsply  HashValue;                                                              
+                                                                               
+cvtHex1to2( %addr( HashValueChar) : %addr( HashValue) : %size( HashValueChar));
+dsply  HashValueChar;                                                          
+                                                                               
+*inlr = *on;
