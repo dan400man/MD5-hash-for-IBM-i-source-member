@@ -21,7 +21,7 @@ dcl-s  wSqlStmt                  varchar( 200);
                                                                                                  
 dcl-pr hash extproc('Qc3CalculateHash');                                                         
  InputData                       pointer value;                                                  
- LengthOfInputData               bindec( 9);                    
+ LengthOfInputData               int( 10);                  
  InputDataFormatName             char(   8);                    
  AlgorithmDescription            char(  20) options(*varsize);  
  AlgorithmDescriptionFormatName  char(   8);                    
@@ -31,7 +31,7 @@ dcl-pr hash extproc('Qc3CalculateHash');
  ErrorCode                       char( 300) options(*varsize);  
 end-pr;                                                         
                                                                 
-dcl-s inputlen                   bindec( 9);                    
+dcl-s inputlen                   int( 10);                 
 dcl-s inputfmt                   char(   8) inz('DATA0100');    
 dcl-s AlgDescFmt                 char(   8) inz('ALGD0500');    
 dcl-s CryptoServ                 char(   1) inz('0');           
